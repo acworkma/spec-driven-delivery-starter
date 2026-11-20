@@ -1,50 +1,72 @@
-# [PROJECT_NAME] Constitution
-<!-- Example: Spec Constitution, TaskFlow Constitution, etc. -->
+# Contoso Health Plan Delivery Constitution
+
+> **Starter constitution for a regulated health plan.** Every rule here should already be true in your organization; delete or replace anything that isn't before you ratify it. Contoso Health Plan is a fictional company.
 
 ## Core Principles
 
-### [PRINCIPLE_1_NAME]
-<!-- Example: I. Library-First -->
-[PRINCIPLE_1_DESCRIPTION]
-<!-- Example: Every feature starts as a standalone library; Libraries must be self-contained, independently testable, documented; Clear purpose required - no organizational-only libraries -->
+### I. Member privacy first (NON-NEGOTIABLE)
 
-### [PRINCIPLE_2_NAME]
-<!-- Example: II. CLI Interface -->
-[PRINCIPLE_2_DESCRIPTION]
-<!-- Example: Every library exposes functionality via CLI; Text in/out protocol: stdin/args → stdout, errors → stderr; Support JSON + human-readable formats -->
+- **No real personal data in the delivery system.** No protected health information (PHI), member data or other real personal data goes into prompts, specs, issues, work items, commits, test fixtures or screenshots. Use synthetic data only.
+- **Minimum necessary.** Features that touch member data show and store only what the user's task needs.
+- **Audit everything.** Every view, export or change of member data, by a person or a system, is audit-logged.
+- **Privacy questions are settled before Ready.** They are resolved with the Privacy Office before a spec is marked Ready, and the answer is recorded in the spec's Clarifications.
 
-### [PRINCIPLE_3_NAME]
-<!-- Example: III. Test-First (NON-NEGOTIABLE) -->
-[PRINCIPLE_3_DESCRIPTION]
-<!-- Example: TDD mandatory: Tests written → User approved → Tests fail → Then implement; Red-Green-Refactor cycle strictly enforced -->
+### II. Specs before code
 
-### [PRINCIPLE_4_NAME]
-<!-- Example: IV. Integration Testing -->
-[PRINCIPLE_4_DESCRIPTION]
-<!-- Example: Focus areas requiring integration tests: New library contract tests, Contract changes, Inter-service communication, Shared schemas -->
+- **Specs for the hard changes.** Ambiguous, rules-heavy, cross-team or regulated changes start from a spec in `specs/`. A small, well-understood change may use an issue or work item with acceptance criteria instead.
+- **What and why, never how.** The spec has no languages, frameworks, databases or cloud services; those belong in the plan.
+- **Two approvals, in the pull request.** The product owner approves the what and why; engineering approves feasibility.
+- **Flow-forward.** When behavior changes, the spec changes in the same pull request, so the spec on `main` always describes what is in production or about to be.
 
-### [PRINCIPLE_5_NAME]
-<!-- Example: V. Observability, VI. Versioning & Breaking Changes, VII. Simplicity -->
-[PRINCIPLE_5_DESCRIPTION]
-<!-- Example: Text I/O ensures debuggability; Structured logging required; Or: MAJOR.MINOR.BUILD format; Or: Start simple, YAGNI principles -->
+### III. Testable acceptance
 
-## [SECTION_2_NAME]
-<!-- Example: Additional Constraints, Security Requirements, Performance Standards, etc. -->
+- **Scenario IDs and exception paths.** Every user story has Given/When/Then acceptance scenarios with IDs (`US1-AS1`), including at least one exception path.
+- **Evidence before done.** Tests are named after the scenarios they prove. A story is not done until every scenario has passing evidence.
+- **Measurable success.** Success criteria are measurable and technology-agnostic, with a baseline where one exists.
 
-[SECTION_2_CONTENT]
-<!-- Example: Technology stack requirements, compliance standards, deployment policies, etc. -->
+### IV. Accessible, plain-language member experiences
 
-## [SECTION_3_NAME]
-<!-- Example: Development Workflow, Review Process, Quality Gates, etc. -->
+- **Accessibility.** Member-facing experiences meet WCAG 2.2 AA.
+- **Plain language.** Member-facing text is written in plain language and tells the member what happens next.
+- **Settled in the spec.** Language-access and alternate-format needs are confirmed in the spec, not discovered in testing.
 
-[SECTION_3_CONTENT]
-<!-- Example: Code review requirements, testing gates, deployment approval process, etc. -->
+### V. Secure and observable by default
+
+- **Least privilege.** People, services and agents get least-privilege access. Secrets never live in the repository.
+- **Approved interfaces only.** Integrations with systems of record use approved, versioned interfaces, never direct database access.
+- **Clean, measurable telemetry.** Logs and telemetry carry no PHI, and every success criterion can be measured in production.
+
+### VI. Small, reversible changes
+
+- **Thin slices.** Deliver in independently testable slices, highest priority first.
+- **Reversible releases.** Member-facing changes ship behind a feature flag with a rollback plan.
+
+### VII. Humans decide, AI drafts
+
+- **Drafts until approved.** AI-generated specs, plans, tasks and code are drafts until a named person approves them at a gate.
+- **No auto-merge for agents.** Coding agents work on branches with least-privilege tokens, and their pull requests are never auto-merged.
+- **Read-only by default.** Tools that can write to work tracking or source control run read-only unless a person turns writing on.
+
+## Regulatory and Data Constraints
+
+- **HIPAA.** HIPAA Privacy and Security Rule obligations apply to anything that stores, displays or transmits PHI.
+- **Sensitive services and dependents.** State privacy rules for sensitive services and for dependents can override what a subscriber may see by default. The Privacy Office owns the interpretation.
+- **BAA coverage.** Only platforms covered by the organization's business associate agreements may hold PHI. Planning and specification tools that are not covered stay PHI-free.
+- **Records retention.** Retention follows the records-retention schedule. Specs never set retention periods without Records Management.
+
+## Delivery Workflow and Quality Gates
+
+| Gate | Passes when | Approved by |
+|---|---|---|
+| 1. Spec Ready | No open clarifications on P1 stories; quality checklist complete; spec gate passes | Product owner and engineering lead |
+| 2. Plan approved | Constitution Check passes; contracts and data model reviewed | Tech lead (plus architecture for new patterns) |
+| 3. Merge | Code review complete; tests for every touched scenario pass; spec gate passes; no PHI | A reviewer who is neither the author nor the agent |
+| 4. Release | Feature flag and rollback plan in place; success-criteria telemetry live | Product owner and operations |
 
 ## Governance
-<!-- Example: Constitution supersedes all other practices; Amendments require documentation, approval, migration plan -->
 
-[GOVERNANCE_RULES]
-<!-- Example: All PRs/reviews must verify compliance; Complexity must be justified; Use [GUIDANCE_FILE] for runtime development guidance -->
+- **Precedence.** This constitution overrides local conventions. Exceptions are recorded in the plan's Complexity Tracking table, with a reason and an owner.
+- **Amendments.** Amendments are made by pull request and approved by the architecture and security leads. Versions follow semantic versioning.
+- **Reviews.** Review the constitution every quarter and after any privacy or security incident.
 
-**Version**: [CONSTITUTION_VERSION] | **Ratified**: [RATIFICATION_DATE] | **Last Amended**: [LAST_AMENDED_DATE]
-<!-- Example: Version: 2.1.1 | Ratified: 2025-06-13 | Last Amended: 2025-07-16 -->
+**Version**: 0.1.0 | **Ratified**: 2026-11-18 | **Last Amended**: 2026-11-18

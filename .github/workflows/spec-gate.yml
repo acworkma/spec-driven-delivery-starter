@@ -1,0 +1,31 @@
+name: spec-gate
+
+on:
+  pull_request:
+    paths:
+      - "specs/**"
+      - ".specify/**"
+      - "tools/spec_lint.py"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  spec-gate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+      - name: Run the spec gate
+        env:
+          # Comma-separated customer names, code names or people to keep out of the repo.
+          # Store it as a repository secret; never commit the list.
+          SPEC_LINT_BANNED_TERMS: ${{ secrets.SPEC_LINT_BANNED_TERMS }}
+        run: python tools/spec_lint.py --report spec-gate-report.md
+      - name: Add the traceability summary to the run
+        if: always()
+        run: |
+          if [ -f spec-gate-report.md ]; then cat spec-gate-report.md >> "$GITHUB_STEP_SUMMARY"; fi
