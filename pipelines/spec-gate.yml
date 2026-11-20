@@ -1,0 +1,24 @@
+# Spec gate for Azure Repos.
+# Azure Repos ignores YAML pr: triggers. Add this pipeline as build validation in the
+# branch policy for main, with path filter: /specs/*; /.specify/*; /tools/spec_lint.py
+
+trigger: none
+pr: none
+
+pool:
+  vmImage: ubuntu-latest
+
+steps:
+  - task: UsePythonVersion@0
+    inputs:
+      versionSpec: "3.12"
+
+  - script: python tools/spec_lint.py --report "$(Build.ArtifactStagingDirectory)/spec-gate-report.md"
+    displayName: Run the spec gate
+
+  - task: PublishPipelineArtifact@1
+    condition: always()
+    displayName: Publish the traceability summary
+    inputs:
+      targetPath: "$(Build.ArtifactStagingDirectory)"
+      artifact: spec-gate-report

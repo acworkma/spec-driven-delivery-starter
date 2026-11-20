@@ -1,0 +1,730 @@
+openapi: 3.1.0
+info:
+  title: Contoso Health Plan claim-status API
+  version: 1.0.0
+  summary: Read-only claim status for the member portal (feature 001-member-claim-status).
+  description: |
+    Contract for the claim-status service behind the member portal's Claims pages.
+    Contoso Health Plan is a fictional company, and every example in this file is synthetic.
+
+    Rules for every operation:
+
+    - **Minimum necessary.** Responses never contain diagnosis or procedure codes, clinical
+      notes, internal status or reason codes, dates of birth or member IDs. Response schemas are
+      closed, so contract tests fail if any other field appears.
+    - **No trace of hidden claims.** The service applies the visibility decision table
+      (data-model.md) before it counts, sorts or returns anything. A hidden claim, a claim that
+      does not exist, and a malformed reference all get the same `404` with the same body.
+      No operation answers `403` for a claim or a dependent.
+    - **Freshness.** Claim data is never more than 24 hours behind the claims system.
+      `updatedAt` says when it was last read; `freshness: delayed` means the claims system is
+      unavailable and a copy less than 24 hours old is being served.
+    - **Language.** `Accept-Language: es` returns member-facing text in Spanish. EOB documents
+      are returned as the document service produces them.
+    - **No caching.** Every response carries `Cache-Control: no-store`.
+    - **Opaque references.** Paths carry `memberRef` and `claimId`, never member IDs or claim
+      numbers, so request logs hold no member identifiers.
+  contact:
+    name: Member Portal engineering (fictional)
+servers:
+  - url: https://claim-status.contoso.example
+    description: Fictional host. Replace with yours.
+security:
+  - memberSignIn: []
+tags:
+  - name: Household
+    description: Who the signed-in member can view claims for.
+  - name: Claims
+    description: Claim lists and claim details.
+  - name: EOB
+    description: Explanation of Benefits documents.
+
+paths:
+  /v1/household:
+    get:
+      tags: [Household]
+      operationId: listHousehold
+      summary: List the people whose claims the signed-in member can choose
+      description: |
+        Always returns the signed-in member as `self`. A subscriber also gets each dependent on
+        the coverage. Any other member, such as a spouse who is not the subscriber, gets only
+        `self`.
+
+        `claimsAccess` is `adultDependentPrivate` for every dependent 18 or over, whether or not
+        they have claims. A dependent with a confidential communication request appears exactly
+        like any other dependent of the same age, so nothing reveals the request.
+      x-spec-refs: [FR-011, FR-013, US3-AS3]
+      parameters:
+        - $ref: '#/components/parameters/AcceptLanguage'
+      responses:
+        '200':
+          description: The people the caller can choose.
+          headers:
+            Cache-Control:
+              $ref: '#/components/headers/NoStore'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Household'
+              examples:
+                subscriberOfHH07:
+                  summary: Subscriber of synthetic household HH-07 (dependents aged 9, 16 and 19)
+                  value:
+                    members:
+                      - memberRef: self
+                        relationship: self
+                        displayName: Subscriber
+                        claimsAccess: available
+                      - memberRef: m_4Tq9Lw2Zr8Kd1Vb6Xn3Hs0
+                        relationship: child
+                        displayName: Dependent A
+                        claimsAccess: available
+                      - memberRef: m_7Pf3Jc5Yh2Mw9Ga1Ue8Rk4
+                        relationship: child
+                        displayName: Dependent B
+                        claimsAccess: available
+                      - memberRef: m_2Ns6Bd8Qx4Fv7Ty0Lc5Wp9
+                        relationship: child
+                        displayName: Dependent C
+                        claimsAccess: adultDependentPrivate
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+
+  /v1/members/{memberRef}/claims:
+    get:
+      tags: [Claims]
+      operationId: listClaims
+      summary: List claims from the last 24 months, newest first
+      description: |
+        Claims with a date of service in the last 24 months for `self` or a dependent, newest
+        first. An adjusted claim appears once, as its latest version. Hidden claims go through
+        the same fetch, cache and freshness steps as visible ones and are removed before the list
+        is built, so they never change the list, its length, `updatedAt` or any message.
+
+        For a dependent 18 or over, `claims` is empty and `notice` is `adultDependentPrivate`,
+        whether or not the dependent has claims. A dependent whose claims are all hidden gets the
+        same response as a dependent with no claims.
+      x-spec-refs: [FR-001, FR-002, FR-003, FR-004, FR-011, FR-012, FR-013, FR-015, US1-AS1, US1-AS2, US1-AS3, US1-AS4, US1-AS5, US3-AS1, US3-AS2, US3-AS3, US3-AS4]
+      parameters:
+        - $ref: '#/components/parameters/MemberRef'
+        - $ref: '#/components/parameters/AcceptLanguage'
+      responses:
+        '200':
+          description: The caller's view of the member's claims.
+          headers:
+            Cache-Control:
+              $ref: '#/components/headers/NoStore'
+            Content-Language:
+              $ref: '#/components/headers/ContentLanguage'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ClaimList'
+              examples:
+                ownClaimsCurrent:
+                  summary: Subscriber CHP-0004417 viewing their own claims (US1-AS1)
+                  value:
+                    memberRef: self
+                    updatedAt: '2026-11-18T14:05:00Z'
+                    freshness: current
+                    notice: null
+                    claims:
+                      - claimId: c_9Hd2Kq7Wm4Zt1Rb8Xc6Lf3
+                        claimNumber: CLM-2026-000185
+                        dateOfService: '2026-11-06'
+                        providerName: Northwind Family Medicine
+                        status: waitingForInformation
+                        statusLabel: Waiting for information
+                        amountBilled: {amount: '210.00', currency: USD}
+                        planPaid: null
+                        youMayOwe: null
+                        otherPlanPaidFirst: false
+                      - claimId: c_3Vn8Pb1Ys6Gk4Tw9Md2Qh7
+                        claimNumber: CLM-2026-000183
+                        dateOfService: '2026-10-29'
+                        providerName: Fabrikam Imaging Center
+                        status: processed
+                        statusLabel: Processed
+                        amountBilled: {amount: '640.00', currency: USD}
+                        planPaid: {amount: '412.50', currency: USD}
+                        youMayOwe: {amount: '87.50', currency: USD}
+                        otherPlanPaidFirst: false
+                ownClaimsDelayed:
+                  summary: Claims system unavailable; copy 6 hours old (US1-AS3)
+                  value:
+                    memberRef: self
+                    updatedAt: '2026-11-18T08:05:00Z'
+                    freshness: delayed
+                    notice: null
+                    claims:
+                      - claimId: c_3Vn8Pb1Ys6Gk4Tw9Md2Qh7
+                        claimNumber: CLM-2026-000183
+                        dateOfService: '2026-10-29'
+                        providerName: Fabrikam Imaging Center
+                        status: processed
+                        statusLabel: Processed
+                        amountBilled: {amount: '640.00', currency: USD}
+                        planPaid: {amount: '412.50', currency: USD}
+                        youMayOwe: {amount: '87.50', currency: USD}
+                        otherPlanPaidFirst: false
+                adultDependent:
+                  summary: Dependent aged 19 (US3-AS3); identical whether or not they have claims
+                  value:
+                    memberRef: m_2Ns6Bd8Qx4Fv7Ty0Lc5Wp9
+                    updatedAt: '2026-11-18T14:05:00Z'
+                    freshness: current
+                    notice: adultDependentPrivate
+                    claims: []
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+
+  /v1/members/{memberRef}/claims/{claimId}:
+    get:
+      tags: [Claims]
+      operationId: getClaim
+      summary: Get one claim with its service lines, status explanation and next step
+      description: |
+        Returns every service line. Text comes from Claims Operations' mapping in the requested
+        language; a code with no mapping gets the generic message and never the code itself.
+        A hidden claim gets the standard `404`.
+      x-spec-refs: [FR-005, FR-006, FR-007, FR-008, FR-009, FR-010, FR-012, FR-015, FR-016, US2-AS1, US2-AS2, US2-AS3, US2-AS4, US2-AS5, US3-AS5]
+      parameters:
+        - $ref: '#/components/parameters/MemberRef'
+        - $ref: '#/components/parameters/ClaimId'
+        - $ref: '#/components/parameters/AcceptLanguage'
+      responses:
+        '200':
+          description: The claim.
+          headers:
+            Cache-Control:
+              $ref: '#/components/headers/NoStore'
+            Content-Language:
+              $ref: '#/components/headers/ContentLanguage'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ClaimDetail'
+              examples:
+                partlyDenied:
+                  summary: One of three lines denied (US2-AS4)
+                  value:
+                    claimId: c_6Jr4Xw9Bn2Kf7Qp1Hs8Td5
+                    claimNumber: CLM-2026-000188
+                    dateOfService: '2026-07-21'
+                    providerName: Litware Physical Therapy
+                    status: processed
+                    statusLabel: Processed
+                    amountBilled: {amount: '450.00', currency: USD}
+                    planPaid: {amount: '180.00', currency: USD}
+                    youMayOwe: {amount: '195.00', currency: USD}
+                    otherPlanPaidFirst: false
+                    statusText: We processed this claim.
+                    nextStep:
+                      waitingOn: null
+                      text: Here's what we paid and what you may owe. Your provider may bill you for what you owe.
+                    denial: null
+                    lines:
+                      - lineNumber: 1
+                        serviceDescription: Physical therapy evaluation
+                        amountBilled: {amount: '200.00', currency: USD}
+                        planPaid: {amount: '150.00', currency: USD}
+                        youMayOwe: {amount: '30.00', currency: USD}
+                        status: processed
+                        denialReason: null
+                      - lineNumber: 2
+                        serviceDescription: Therapeutic exercise
+                        amountBilled: {amount: '85.00', currency: USD}
+                        planPaid: {amount: '30.00', currency: USD}
+                        youMayOwe: {amount: '0.00', currency: USD}
+                        status: processed
+                        denialReason: null
+                      - lineNumber: 3
+                        serviceDescription: Home exercise equipment
+                        amountBilled: {amount: '165.00', currency: USD}
+                        planPaid: {amount: '0.00', currency: USD}
+                        youMayOwe: {amount: '165.00', currency: USD}
+                        status: denied
+                        denialReason: Your plan doesn't cover this service.
+                    eob:
+                      availability: available
+                      message: null
+                      alternateFormatHelp: To get this in large print, braille or another language, call the number on your member ID card.
+                    updatedAt: '2026-11-18T14:05:00Z'
+                    freshness: current
+                unmappedReason:
+                  summary: Denial reason with no plain-language mapping (US2-AS5)
+                  value:
+                    claimId: c_1Mb7Rz3Ld9Wq5Ke2Yt6Pv8
+                    claimNumber: CLM-2026-000189
+                    dateOfService: '2026-06-12'
+                    providerName: Trey Research Laboratory
+                    status: denied
+                    statusLabel: Denied
+                    amountBilled: {amount: '120.00', currency: USD}
+                    planPaid: {amount: '0.00', currency: USD}
+                    youMayOwe: {amount: '0.00', currency: USD}
+                    otherPlanPaidFirst: false
+                    statusText: We're reviewing this claim. Please contact us. Call the number on your member ID card.
+                    nextStep:
+                      waitingOn: null
+                      text: We're reviewing this claim. Please contact us. Call the number on your member ID card.
+                    denial:
+                      reason: We're reviewing this claim. Please contact us. Call the number on your member ID card.
+                      howToAppeal: You, or someone you choose, can ask us to review this decision.
+                      appealDeadline: '2026-12-09'
+                      appealProcessUrl: https://www.contoso.example/members/appeals
+                    lines:
+                      - lineNumber: 1
+                        serviceDescription: Lab test
+                        amountBilled: {amount: '120.00', currency: USD}
+                        planPaid: {amount: '0.00', currency: USD}
+                        youMayOwe: {amount: '0.00', currency: USD}
+                        status: denied
+                        denialReason: We're reviewing this claim. Please contact us. Call the number on your member ID card.
+                    eob:
+                      availability: available
+                      message: null
+                      alternateFormatHelp: To get this in large print, braille or another language, call the number on your member ID card.
+                    updatedAt: '2026-11-18T14:05:00Z'
+                    freshness: current
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+
+  /v1/members/{memberRef}/claims/{claimId}/eob:
+    get:
+      tags: [EOB]
+      operationId: getEobLink
+      summary: Get a short-lived link to the claim's Explanation of Benefits
+      description: |
+        Looks the claim up exactly as `getClaim` does, so a hidden claim gets the standard `404`.
+        For a visible claim with an EOB, returns a link from the document service that opens one
+        document and expires after 5 minutes. The link is never logged; the request is
+        audit-logged.
+      x-spec-refs: [FR-008, FR-012, FR-014, FR-015, US2-AS3, US4-AS1, US4-AS2, US4-AS3]
+      parameters:
+        - $ref: '#/components/parameters/MemberRef'
+        - $ref: '#/components/parameters/ClaimId'
+        - $ref: '#/components/parameters/AcceptLanguage'
+      responses:
+        '200':
+          description: A short-lived link to the EOB.
+          headers:
+            Cache-Control:
+              $ref: '#/components/headers/NoStore'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EobLink'
+              examples:
+                eobLink:
+                  summary: EOB for CLM-2026-000183 (US4-AS1)
+                  value:
+                    url: https://documents.contoso.example/eob/one-time/7d1f0c3a9b
+                    expiresAt: '2026-11-18T14:10:00Z'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/EobNotReady'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+
+components:
+  securitySchemes:
+    memberSignIn:
+      type: openIdConnect
+      openIdConnectUrl: https://signin.contoso.example/.well-known/openid-configuration
+      description: Contoso's existing enterprise member sign-in. The service validates the member's token.
+
+  parameters:
+    MemberRef:
+      name: memberRef
+      in: path
+      required: true
+      description: '`self`, or an opaque dependent reference from `listHousehold`. Never a member ID.'
+      schema:
+        $ref: '#/components/schemas/MemberRef'
+    ClaimId:
+      name: claimId
+      in: path
+      required: true
+      description: Opaque, stable claim reference from `listClaims`. Never the claim number.
+      schema:
+        $ref: '#/components/schemas/ClaimId'
+    AcceptLanguage:
+      name: Accept-Language
+      in: header
+      required: false
+      description: Language for member-facing text. The portal sets it from the member's language preference.
+      schema:
+        type: string
+        enum: [en, es]
+        default: en
+
+  headers:
+    NoStore:
+      description: Always `no-store`. Claim data must not be cached by browsers or intermediaries.
+      schema:
+        type: string
+        const: no-store
+    ContentLanguage:
+      description: Language of the member-facing text in the response.
+      schema:
+        type: string
+        enum: [en, es]
+
+  responses:
+    NotFound:
+      description: |
+        The reference is unknown, malformed, outside the caller's household, or points to a claim
+        hidden from the caller by the visibility rules. Every case returns this exact response,
+        with the same body and comparable timing.
+      headers:
+        Cache-Control:
+          $ref: '#/components/headers/NoStore'
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          examples:
+            notFound:
+              summary: Same for hidden and nonexistent claims (US3-AS5, US4-AS3)
+              value:
+                code: NOT_FOUND
+                message: We can't find this claim.
+                correlationId: 0b6f3c2e-8a41-4d7e-9c55-2f1a7e9d4b10
+    Unauthenticated:
+      description: The member is not signed in, or the session has timed out.
+      headers:
+        Cache-Control:
+          $ref: '#/components/headers/NoStore'
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          examples:
+            unauthenticated:
+              value:
+                code: UNAUTHENTICATED
+                message: Please sign in again.
+                correlationId: 5e2a9d71-3c0b-4f86-a1d4-7b9e2c6f0a33
+    Unavailable:
+      description: |
+        Claims can't be shown right now. Either the claims system is unavailable and no copy
+        less than 24 hours old exists, or a dependent's age or privacy status can't be confirmed.
+        Both cases use this same response.
+      headers:
+        Cache-Control:
+          $ref: '#/components/headers/NoStore'
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          examples:
+            unavailable:
+              summary: Nothing less than 24 hours old to show (US1-AS4)
+              value:
+                code: CLAIMS_TEMPORARILY_UNAVAILABLE
+                message: We can't show your claims right now. Please try again later, or call the number on your member ID card.
+                correlationId: 9c4d1b7a-2e6f-4a08-b3c5-8d0e1f2a6b47
+    EobNotReady:
+      description: The claim is visible and processed, but its EOB has not been generated yet.
+      headers:
+        Cache-Control:
+          $ref: '#/components/headers/NoStore'
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          examples:
+            notReady:
+              summary: Processed yesterday (US4-AS2)
+              value:
+                code: EOB_NOT_READY
+                message: Your Explanation of Benefits isn't ready yet. It's usually ready within 3 business days after we process your claim.
+                correlationId: 3a7e5c90-1d2b-4e6f-8a9c-0b1d2e3f4a5b
+
+  schemas:
+    MemberRef:
+      type: string
+      pattern: '^(self|m_[A-Za-z0-9]{22})$'
+      description: '`self`, or `m_` and 22 letters or digits for a dependent.'
+
+    ClaimId:
+      type: string
+      pattern: '^c_[A-Za-z0-9]{22}$'
+      description: Keyed hash of the claim number; stable and not guessable.
+
+    Money:
+      type: object
+      required: [amount, currency]
+      additionalProperties: false
+      properties:
+        amount:
+          type: string
+          pattern: '^\d{1,9}\.\d{2}$'
+          description: US dollars as a decimal string, never a floating-point number.
+          examples: ['125.00']
+        currency:
+          type: string
+          const: USD
+
+    MemberStatus:
+      type: string
+      enum: [received, inReview, waitingForInformation, processed, denied, adjusted]
+      description: |
+        The six member-facing statuses (spec Clarification 2). Internal codes map to these
+        through Claims Operations' mapping; a code with no mapping is returned as `inReview`
+        with the generic message.
+
+    Household:
+      type: object
+      required: [members]
+      additionalProperties: false
+      properties:
+        members:
+          type: array
+          minItems: 1
+          items:
+            $ref: '#/components/schemas/HouseholdMember'
+
+    HouseholdMember:
+      type: object
+      required: [memberRef, relationship, displayName, claimsAccess]
+      additionalProperties: false
+      properties:
+        memberRef:
+          $ref: '#/components/schemas/MemberRef'
+        relationship:
+          type: string
+          enum: [self, spouse, child, otherDependent]
+        displayName:
+          type: string
+          maxLength: 60
+          description: First name as held by Contoso. Synthetic in every test environment.
+        claimsAccess:
+          type: string
+          enum: [available, adultDependentPrivate]
+          description: '`adultDependentPrivate` for every dependent 18 or over. Never reveals a confidential communication request.'
+
+    ClaimList:
+      type: object
+      required: [memberRef, updatedAt, freshness, notice, claims]
+      additionalProperties: false
+      properties:
+        memberRef:
+          $ref: '#/components/schemas/MemberRef'
+        updatedAt:
+          type: string
+          format: date-time
+          description: When these claims were last read from the claims system. Never more than 24 hours ago.
+        freshness:
+          type: string
+          enum: [current, delayed]
+          description: '`delayed` when the claims system is unavailable and a copy less than 24 hours old is served.'
+        notice:
+          type: [string, 'null']
+          enum: [adultDependentPrivate, null]
+          description: Set for every dependent 18 or over, whether or not they have claims.
+        claims:
+          type: array
+          maxItems: 500
+          description: Newest first. Hidden claims are never included and never counted.
+          items:
+            $ref: '#/components/schemas/ClaimSummary'
+
+    ClaimCore:
+      type: object
+      description: Fields shared by the list and the detail view. Not closed on its own; see ClaimSummary and ClaimDetail.
+      required: [claimId, claimNumber, dateOfService, providerName, status, statusLabel, amountBilled, planPaid, youMayOwe, otherPlanPaidFirst]
+      properties:
+        claimId:
+          $ref: '#/components/schemas/ClaimId'
+        claimNumber:
+          type: string
+          pattern: '^CLM-\d{4}-\d{6}$'
+          description: Shown to the member. Never used in paths or logs.
+          examples: [CLM-2026-000183]
+        dateOfService:
+          type: string
+          format: date
+          description: First date of service.
+        providerName:
+          type: string
+          maxLength: 120
+        status:
+          $ref: '#/components/schemas/MemberStatus'
+        statusLabel:
+          type: string
+          description: Label in the requested language, such as "Processed" or "Procesada".
+        amountBilled:
+          $ref: '#/components/schemas/Money'
+        planPaid:
+          description: Empty until the claim is processed.
+          oneOf:
+            - $ref: '#/components/schemas/Money'
+            - type: 'null'
+        youMayOwe:
+          description: Empty until the claim is processed.
+          oneOf:
+            - $ref: '#/components/schemas/Money'
+            - type: 'null'
+        otherPlanPaidFirst:
+          type: boolean
+          description: When true, the portal shows "Processed by your other plan first".
+
+    ClaimSummary:
+      description: One row of the claims list.
+      allOf:
+        - $ref: '#/components/schemas/ClaimCore'
+      unevaluatedProperties: false
+
+    ClaimDetail:
+      description: One claim with every service line.
+      allOf:
+        - $ref: '#/components/schemas/ClaimCore'
+        - type: object
+          required: [statusText, nextStep, denial, lines, eob, updatedAt, freshness]
+          properties:
+            statusText:
+              type: string
+              description: Plain-language explanation of the status, from the mapping or the generic message.
+            nextStep:
+              $ref: '#/components/schemas/NextStep'
+            denial:
+              description: Set when the claim is denied; denied lines carry their own reason.
+              oneOf:
+                - $ref: '#/components/schemas/Denial'
+                - type: 'null'
+            lines:
+              type: array
+              minItems: 1
+              items:
+                $ref: '#/components/schemas/ClaimLine'
+            eob:
+              $ref: '#/components/schemas/EobAvailability'
+            updatedAt:
+              type: string
+              format: date-time
+            freshness:
+              type: string
+              enum: [current, delayed]
+      unevaluatedProperties: false
+
+    ClaimLine:
+      type: object
+      required: [lineNumber, serviceDescription, amountBilled, planPaid, youMayOwe, status, denialReason]
+      additionalProperties: false
+      properties:
+        lineNumber:
+          type: integer
+          minimum: 1
+        serviceDescription:
+          type: string
+          description: Plain-language description, such as "Office visit". Never a diagnosis or procedure code.
+        amountBilled:
+          $ref: '#/components/schemas/Money'
+        planPaid:
+          oneOf:
+            - $ref: '#/components/schemas/Money'
+            - type: 'null'
+        youMayOwe:
+          oneOf:
+            - $ref: '#/components/schemas/Money'
+            - type: 'null'
+        status:
+          type: [string, 'null']
+          enum: [processed, denied, null]
+          description: Empty until the claim is processed.
+        denialReason:
+          type: [string, 'null']
+          description: Plain-language reason for a denied line, or the generic message. Never a code.
+
+    NextStep:
+      type: object
+      required: [waitingOn, text]
+      additionalProperties: false
+      properties:
+        waitingOn:
+          type: [string, 'null']
+          enum: [provider, member, null]
+          description: Set only when the status is `waitingForInformation`.
+        text:
+          type: string
+          description: What happens next and what, if anything, the member must do.
+
+    Denial:
+      type: object
+      required: [reason, howToAppeal, appealDeadline, appealProcessUrl]
+      additionalProperties: false
+      properties:
+        reason:
+          type: string
+          description: Plain-language reason from the mapping, or the generic message. Never a code.
+        howToAppeal:
+          type: string
+        appealDeadline:
+          type: string
+          format: date
+        appealProcessUrl:
+          type: string
+          format: uri
+          description: Contoso's existing appeal page. Filing online is out of scope.
+
+    EobAvailability:
+      type: object
+      required: [availability, message, alternateFormatHelp]
+      additionalProperties: false
+      properties:
+        availability:
+          type: string
+          enum: [available, notReadyYet, notApplicable]
+          description: |
+            `available` or `notReadyYet` for Processed, Denied and Adjusted claims;
+            `notApplicable` before a claim is processed.
+        message:
+          type: [string, 'null']
+          description: The "usually ready within 3 business days" text when `notReadyYet`.
+        alternateFormatHelp:
+          type: string
+          description: How to ask for the EOB in another format or language through Contoso's existing process.
+
+    EobLink:
+      type: object
+      required: [url, expiresAt]
+      additionalProperties: false
+      properties:
+        url:
+          type: string
+          format: uri
+          description: Opens one document at the document service. Expires after 5 minutes. Never logged.
+        expiresAt:
+          type: string
+          format: date-time
+
+    Error:
+      type: object
+      required: [code, message, correlationId]
+      additionalProperties: false
+      properties:
+        code:
+          type: string
+          enum: [NOT_FOUND, UNAUTHENTICATED, CLAIMS_TEMPORARILY_UNAVAILABLE, EOB_NOT_READY]
+        message:
+          type: string
+          description: Plain-language text in the requested language, safe to show to the member.
+        correlationId:
+          type: string
+          format: uuid
+          description: Links the response to PHI-free telemetry. Identifies no member or claim.

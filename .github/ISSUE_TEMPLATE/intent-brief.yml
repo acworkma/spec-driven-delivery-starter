@@ -1,0 +1,40 @@
+name: Intent brief (start a spec)
+description: Move 1 of the first-spec method. Frame a feature before anyone writes a spec.
+title: "Intent: <feature in a few words>"
+labels: ["intent-brief"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Ten minutes; the product owner leads. Use synthetic examples only: no PHI, member data or real names.
+  - type: textarea
+    id: problem
+    attributes:
+      label: 1. Problem and outcome
+      description: Who is affected? What should change? What is out of scope?
+    validations:
+      required: true
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: 2. Spec and acceptance
+      description: Rules and assumptions, plus one happy path and one exception in Given/When/Then.
+    validations:
+      required: true
+  - type: textarea
+    id: handoffs
+    attributes:
+      label: 3. Handoffs and evidence
+      description: Systems, people, dependencies and test data. What proves it works?
+  - type: textarea
+    id: unknowns
+    attributes:
+      label: 4. Improvements and unknowns
+      description: What would catch a gap earlier? Open questions, and the measures to baseline.
+  - type: checkboxes
+    id: data
+    attributes:
+      label: Data check
+      options:
+        - label: This issue contains no PHI, member data or real names.
+          required: true
