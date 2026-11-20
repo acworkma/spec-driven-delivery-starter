@@ -6,7 +6,7 @@ These guardrails assume protected health information (PHI) is in play somewhere 
 
 - **No real personal data anywhere in the delivery system.** No PHI, member data, real names or real identifiers in prompts, specs, issues, work items, commits, test fixtures or screenshots.
 - **Use synthetic data.** Generators such as [Synthea](https://synthetichealth.github.io/synthea/) produce realistic records with no real patients. Keep synthetic identifiers obviously fake, e.g. `CHP-0004417`.
-- **The spec gate backs this up.** `tools/spec_lint.py` fails on SSN-like numbers and on any term in the `SPEC_LINT_BANNED_TERMS` secret, such as customer names, code names or people. Keep that list in a CI secret, never in the repository.
+- **The spec gate backs this up.** `tools/spec_lint.py` fails on SSN-like numbers anywhere in the repository.
 
 ## Platforms and agreements
 

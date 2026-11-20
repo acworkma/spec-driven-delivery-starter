@@ -7,7 +7,6 @@
 3. **Optional: add Spec Kit's commands.** See `docs/spec-kit-setup.md`.
 4. **Replace the starter constitution.** Edit `.specify/memory/constitution.md` so it holds only rules that are already true for you. Merge it through a pull request approved by your architecture and security leads.
 5. **Create the spec-gate pipeline** from `pipelines/spec-gate.yml`.
-   - Optional: a variable group named `spec-gate` with the secret `SPEC_LINT_BANNED_TERMS`. Uncomment the group in the YAML.
 6. **Set branch policies on `main`:**
    - **Required reviewers.** Product owners on `/specs/*`, engineering leads on everything.
    - **Required linked work items:** `az repos policy work-item-linking create --blocking true --enabled true --branch main --repository-id <id>`.

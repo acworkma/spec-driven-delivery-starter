@@ -8,7 +8,6 @@
 4. **Replace the starter constitution.** Edit `.specify/memory/constitution.md` so it holds only rules that are already true for you. Merge it through a pull request approved by your architecture and security leads.
 5. **Turn on the spec gate.**
    - Actions runs `.github/workflows/spec-gate.yml` on pull requests that touch `specs/**`.
-   - Add a repository secret named `SPEC_LINT_BANNED_TERMS` holding the names that must never appear in the repository.
    - Make the check required in a branch protection rule or ruleset.
 
 ## Each feature

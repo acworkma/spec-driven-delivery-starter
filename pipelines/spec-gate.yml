@@ -8,11 +8,6 @@ pr: none
 pool:
   vmImage: ubuntu-latest
 
-# Optional: a variable group named spec-gate holding the secret SPEC_LINT_BANNED_TERMS
-# (comma-separated customer names, code names or people to keep out of the repo).
-# variables:
-#   - group: spec-gate
-
 steps:
   - task: UsePythonVersion@0
     inputs:
@@ -20,8 +15,6 @@ steps:
 
   - script: python tools/spec_lint.py --report "$(Build.ArtifactStagingDirectory)/spec-gate-report.md"
     displayName: Run the spec gate
-    env:
-      SPEC_LINT_BANNED_TERMS: $(SPEC_LINT_BANNED_TERMS)
 
   - task: PublishPipelineArtifact@1
     condition: always()

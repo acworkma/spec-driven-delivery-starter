@@ -60,7 +60,7 @@ A first spec stops at `checklists/requirements.md`. Plan and tasks come when the
    - task IDs are unique;
    - story tags and scenario IDs exist in the spec;
    - every FR is referenced by at least one task.
-6. No SSN-like numbers anywhere, and none of the terms in the `SPEC_LINT_BANNED_TERMS` secret.
+6. No SSN-like numbers anywhere.
 
 The gate also warns about these, without failing:
 - tech-stack words in `spec.md`;

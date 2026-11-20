@@ -11,9 +11,8 @@ Usage:
 
 Exit code 1 when any ERROR is found. Warnings never fail the gate.
 
-Banned terms (customer names, internal code names, people) come from the
-SPEC_LINT_BANNED_TERMS environment variable, comma-separated. Keep that list in
-a CI secret or variable group, never in the repository.
+The repository-wide scan also fails on SSN-like numbers. Use synthetic
+identifiers only.
 
 Runs on Python 3.9+ with the standard library only.
 """
@@ -257,16 +256,7 @@ def check_feature(gate: Gate, folder: Path) -> FeatureSummary:
     return summary
 
 
-def banned_terms() -> list:
-    raw = os.environ.get("SPEC_LINT_BANNED_TERMS", "").strip()
-    if not raw or raw.startswith("$(") or raw.startswith("${{"):
-        return []  # unset, or an Azure Pipelines / Actions macro that did not expand
-    return [t.strip() for t in raw.split(",") if t.strip()]
-
-
 def scan_repository(gate: Gate) -> None:
-    terms = banned_terms()
-    patterns = [(t, re.compile(rf"(?<![A-Za-z0-9]){re.escape(t)}(?![A-Za-z0-9])", re.I)) for t in terms]
     for path in sorted(gate.root.rglob("*")):
         if not path.is_file() or path.suffix.lower() not in TEXT_SUFFIXES:
             continue
@@ -280,9 +270,6 @@ def scan_repository(gate: Gate) -> None:
             continue
         for sm in SSN_RE.finditer(text):
             gate.add("ERROR", path, line_of(text, sm.start()), "SSN-like number; use synthetic identifiers only")
-        for term, pat in patterns:
-            for bm in pat.finditer(text):
-                gate.add("ERROR", path, line_of(text, bm.start()), "banned term found (see SPEC_LINT_BANNED_TERMS)")
 
 
 def emit(f: Finding) -> None:
@@ -315,7 +302,7 @@ def main(argv=None) -> int:
     ap.add_argument("features", nargs="*", help="feature folders to check (default: every folder in specs/)")
     ap.add_argument("--root", default=".", help="repository root (default: current directory)")
     ap.add_argument("--report", help="write a Markdown traceability summary to this path")
-    ap.add_argument("--no-repo-scan", action="store_true", help="skip the repository-wide data and term scan")
+    ap.add_argument("--no-repo-scan", action="store_true", help="skip the repository-wide SSN-like number scan")
     args = ap.parse_args(argv)
 
     gate = Gate(root=Path(args.root))

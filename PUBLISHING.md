@@ -42,19 +42,9 @@ git status
 
 ## 5. Scan, commit and push
 
-Set the names that must never appear in the repository, then run the gate. It must report `Spec gate: 0 error(s)`.
-
-PowerShell:
-
-```powershell
-$env:SPEC_LINT_BANNED_TERMS = "name1,name2,..."
-uv run tools/spec_lint.py
-```
-
-macOS or Linux:
+Run the gate. It must report `Spec gate: 0 error(s)`.
 
 ```bash
-export SPEC_LINT_BANNED_TERMS="name1,name2,..."
 uv run tools/spec_lint.py
 ```
 
@@ -68,11 +58,10 @@ git push -u origin main
 
 ## 6. Turn on the gate and smoke-test (still private)
 
-1. **Add the secret.** Settings → Secrets and variables → Actions → add a secret named `SPEC_LINT_BANNED_TERMS`, with the same list.
-2. **Run the gate.** Actions → **spec-gate** → **Run workflow**. It must pass.
-3. **Check Copilot sees everything.** Open the repository in VS Code and type `/` in Copilot Chat. The `speckit-*` skills should be listed, along with `intent-brief`, `spec-review` and `retro-spec`. **spec-coach** should appear in the agent picker.
-4. **Try a spec.** Run `/speckit-specify` with the prompt at the bottom of `specs/001-member-claim-status/intent-brief.md`, and confirm it creates a new folder under `specs/`.
-5. **Throw the test away:** `git restore .` then `git clean -fd`.
+1. **Run the gate.** Actions → **spec-gate** → **Run workflow**. It must pass.
+2. **Check Copilot sees everything.** Open the repository in VS Code and type `/` in Copilot Chat. The `speckit-*` skills should be listed, along with `intent-brief`, `spec-review` and `retro-spec`. **spec-coach** should appear in the agent picker.
+3. **Try a spec.** Run `/speckit-specify` with the prompt at the bottom of `specs/001-member-claim-status/intent-brief.md`, and confirm it creates a new folder under `specs/`.
+4. **Throw the test away:** `git restore .` then `git clean -fd`.
 
 ## 7. Go public
 

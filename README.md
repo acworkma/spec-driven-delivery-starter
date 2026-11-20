@@ -50,7 +50,7 @@ Seven moves take a team from an idea to a spec both sides have approved. A first
 
 **On GitHub:** follow [docs/path-github.md](docs/path-github.md).
 - Select **Use this template** and create a *private* repository for real work.
-- Turn on the spec-gate workflow and add the `SPEC_LINT_BANNED_TERMS` secret.
+- Turn on the spec-gate workflow.
 
 **On Azure DevOps:** follow [docs/path-azure-devops.md](docs/path-azure-devops.md).
 - Import this repository into Azure Repos.
